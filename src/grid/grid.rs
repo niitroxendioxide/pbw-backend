@@ -1,4 +1,4 @@
-use mlua::{Lua, Result, UserData, UserDataMethods};
+use mlua::{Lua, Result, Table, UserData, UserDataMethods, FromLua};
 
 static DIMENSION: usize = 3;
 #[derive(Clone)]
@@ -20,6 +20,23 @@ impl UserData for Grid {
     }
 }
 
+impl FromLua for Grid {
+    fn from_lua(lua_value: mlua::Value, lua: &Lua) -> Result<Self> {
+        match lua_value {
+            mlua::Value::UserData(data) => {
+                let grid_obj = data.borrow::<Grid>()?;
+                Ok(grid_obj.clone())
+            }
+            _ => Err(mlua::Error::FromLuaConversionError {
+                from: lua_value.type_name(),
+                to: ("Grid").to_string().into(),
+                message: Some("Expected a Grid object".to_string()),
+            }),
+        }
+
+    }
+}
+
 pub fn execute_lua(code: &str) -> Result<Grid> {
     let lua = Lua::new();
     let grid: Grid = Grid { data: [[0; 4]; DIMENSION*DIMENSION] };
@@ -32,7 +49,8 @@ pub fn execute_lua(code: &str) -> Result<Grid> {
     let chunk = lua.load(code);
     chunk.exec()?;
 
-    lua.globals().get("grid")?;
+    let globals = lua.globals() as Table;
+    let grid: Grid = globals.get::<Grid>("grid")?;
 
     Ok(grid)
 }
