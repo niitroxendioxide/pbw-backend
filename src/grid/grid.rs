@@ -1,9 +1,10 @@
 use mlua::{Lua, Result, Table, UserData, UserDataMethods, FromLua};
+use serde::Serialize;
 
-static DIMENSION: usize = 3;
-#[derive(Clone)]
+static DIMENSION: usize = 32;
+#[derive(Clone, serde::Serialize)]
 pub struct Grid {
-    pub data: [[u8; 4]; DIMENSION*DIMENSION],
+    pub data: Vec<[u8; 4]>,
 }
 
 impl UserData for Grid {
@@ -39,7 +40,7 @@ impl FromLua for Grid {
 
 pub fn execute_lua(code: &str) -> Result<Grid> {
     let lua = Lua::new();
-    let grid: Grid = Grid { data: [[0; 4]; DIMENSION*DIMENSION] };
+    let grid: Grid = Grid { data: vec![[0; 4]; DIMENSION*DIMENSION] };
 
     lua.globals().set("grid", grid)?;
     
