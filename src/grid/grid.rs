@@ -1,21 +1,42 @@
 use mlua::{Lua, Result, Table, UserData, UserDataMethods, FromLua};
 use serde::Serialize;
+use tokio_tungstenite::tungstenite::protocol::frame;
+
+
 
 static DIMENSION: usize = 32;
+
+
+#[derive(Clone, serde::Serialize)]
+pub struct Frame {
+    pub data: Vec<[u8; 4]>,
+}
+
+
 #[derive(Clone, serde::Serialize)]
 pub struct Grid {
-    pub data: Vec<[u8; 4]>,
+    pub current_frame: usize,
+    pub frames: Vec<Frame>,
 }
 
 impl UserData for Grid {
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
+
         methods.add_method_mut("set_pixel", |_, this, (x, y, r, g, b): (i64, i64, u8, u8, u8)| {
+            let base_frame_data = &mut this.frames[this.current_frame].data;
             let idx = (y * (DIMENSION as i64) + x) as usize;
             if idx < DIMENSION*DIMENSION {
-                this.data[idx] = [r, g, b, 255];
+                base_frame_data[idx] = [r, g, b, 255];
             }
 
             println!("Edited pixel. Pos: Vec2({}, {}) Color: RGB({}, {}, {})", x, y, r, g, b);
+            Ok(())
+        });
+
+
+        methods.add_method_mut("switch_frame", |_, this, (frame_to_switch): (usize) | {
+            this.current_frame = frame_to_switch;
+
             Ok(())
         });
     }
@@ -38,9 +59,9 @@ impl FromLua for Grid {
     }
 }
 
-pub fn execute_lua(code: &str) -> Result<Grid> {
+pub fn execute_lua(code: &str) -> Result<Frame> {
     let lua = Lua::new();
-    let grid: Grid = Grid { data: vec![[0; 4]; DIMENSION*DIMENSION] };
+    let grid: Grid = Grid { current_frame: 0, frames: vec![ Frame {data: vec![[0; 4]; DIMENSION*DIMENSION]}] };
 
     lua.globals().set("grid", grid)?;
     
@@ -53,5 +74,5 @@ pub fn execute_lua(code: &str) -> Result<Grid> {
     let globals = lua.globals() as Table;
     let grid: Grid = globals.get::<Grid>("grid")?;
 
-    Ok(grid)
+    Ok(grid.frames[grid.current_frame].clone())
 }
