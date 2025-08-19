@@ -1,14 +1,11 @@
 use mlua::{Lua, Result, Table, UserData, UserDataMethods, FromLua};
-use serde::Serialize;
-use tokio_tungstenite::tungstenite::protocol::frame;
-
-
 
 static DIMENSION: usize = 32;
 
 
 #[derive(Clone, serde::Serialize)]
 pub struct Frame {
+    pub id: usize,
     pub data: Vec<[u8; 4]>,
 }
 
@@ -25,7 +22,7 @@ impl UserData for Grid {
         methods.add_method_mut("set_pixel", |_, this, (x, y, r, g, b): (i64, i64, u8, u8, u8)| {
             let base_frame_data = &mut this.frames[this.current_frame].data;
             let idx = (y * (DIMENSION as i64) + x) as usize;
-            if idx < DIMENSION*DIMENSION {
+            if idx < (DIMENSION*DIMENSION) {
                 base_frame_data[idx] = [r, g, b, 255];
             }
 
@@ -33,8 +30,22 @@ impl UserData for Grid {
             Ok(())
         });
 
+        methods.add_method_mut("create_frame", |_, this, ()| {
+            let new_frame = Frame {
+                id: this.frames.len() + 1,
+                data: vec![[0; 4]; DIMENSION*DIMENSION]
+            };
 
-        methods.add_method_mut("switch_frame", |_, this, (frame_to_switch): (usize) | {
+            this.frames.push(new_frame);
+
+            Ok(())
+        });
+
+        methods.add_method_mut("switch_frame", |_, this, frame_to_switch: usize | {
+            if frame_to_switch > (this.frames.len()-1) {
+                return Ok(());
+            }    
+
             this.current_frame = frame_to_switch;
 
             Ok(())
@@ -43,7 +54,7 @@ impl UserData for Grid {
 }
 
 impl FromLua for Grid {
-    fn from_lua(lua_value: mlua::Value, lua: &Lua) -> Result<Self> {
+    fn from_lua(lua_value: mlua::Value, _: &Lua) -> Result<Self> {
         match lua_value {
             mlua::Value::UserData(data) => {
                 let grid_obj = data.borrow::<Grid>()?;
@@ -59,9 +70,9 @@ impl FromLua for Grid {
     }
 }
 
-pub fn execute_lua(code: &str) -> Result<Frame> {
+pub fn execute_lua(code: &str) -> Result<Grid> {
     let lua = Lua::new();
-    let grid: Grid = Grid { current_frame: 0, frames: vec![ Frame {data: vec![[0; 4]; DIMENSION*DIMENSION]}] };
+    let grid: Grid = Grid { current_frame: 0, frames: vec![ Frame {id: 1, data: vec![[0; 4]; DIMENSION*DIMENSION]}] };
 
     lua.globals().set("grid", grid)?;
     
@@ -74,5 +85,5 @@ pub fn execute_lua(code: &str) -> Result<Frame> {
     let globals = lua.globals() as Table;
     let grid: Grid = globals.get::<Grid>("grid")?;
 
-    Ok(grid.frames[grid.current_frame].clone())
+    Ok(grid)
 }

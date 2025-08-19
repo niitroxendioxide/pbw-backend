@@ -1,53 +1,51 @@
 use std::sync::Arc;
 
-use futures_util::{SinkExt, StreamExt};
-use serde_json::json;
+use futures_util::{StreamExt};
 use tokio::sync::Mutex;
-use warp::{filters::{body::json, ws::Message}, Filter};
-use serde::{Deserialize, Serialize};
+use warp::Filter;
 
 mod config;
-mod listener;
 mod grid;
+mod connections;
+
+fn process_source_code(ws_sender: connections::connections::WebSocketSender, source_code: &str) {       
+    if let Ok(grid) = grid::execute_lua(source_code) {
+        let grid_clone = grid.clone();
+
+        tokio::spawn(async move {
+            println!("Attempting to send grid data to client.");
+
+            connections::connections::send_full_grid_data(ws_sender, grid_clone).await;
+        });
+    } else {
+        println!("Failed to execute Lua script");
+    }
+} 
+
+async fn accept_websocket(websocket: warp::ws::WebSocket) {
+    let (sender, mut receiver) = websocket.split();
+    let mutex_sender = Arc::new(Mutex::new(sender));
+
+    while let Some(msg) = receiver.next().await {
+        match msg {
+            Ok(message) => {
+                if let Ok(source_code) = message.to_str() {
+                    process_source_code(mutex_sender.clone(), source_code);
+                };
+            },
+            Err(err) => {
+                println!("Connection error: {}", err);
+            }
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() {
     let ws_route = warp::path("ws")
         .and(warp::ws())
         .map(|ws: warp::ws::Ws| {
-            ws.on_upgrade(|websocket| async {
-                // Handle WebSocket connection
-                let (sender, mut receiver) = websocket.split();
-                let sendfr = Arc::new(Mutex::new(sender));
-
-                // bleh
-
-                while let Some(msg) = receiver.next().await {
-                    match msg {
-                        Ok(message) => {
-                            if let Ok(str) = message.to_str() {
-                                let cloned = sendfr.clone();
-                                
-                                if let Ok(grid) = grid::execute_lua(str) {
-                                    tokio::spawn(async move {
-                                        let json_data = json!(grid.data);
-                                        let msg = Message::text(json_data.to_string());
-                                        if let Err(message_send_error) = cloned.lock().await.send(msg).await {
-                                            println!("error: {}", message_send_error);
-                                        }
-                                    });
-                                } else {
-                                    // Handle the error case if needed
-                                    println!("Failed to execute Lua script");
-                                }
-                            };
-                        },
-                        Err(err) => {
-                            println!("Connection error: {}", err);
-                        }
-                    }
-                }
-            })
+            ws.on_upgrade(accept_websocket)
         });
 
     warp::serve(ws_route).run(([0, 0, 0, 0], 8080)).await;
