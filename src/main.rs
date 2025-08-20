@@ -14,7 +14,7 @@ fn process_source_code(ws_sender: connections::connections::WebSocketSender, sou
         let grid_clone = grid.clone();
 
 
-        render::image::convert_from_grid(&grid_clone);
+        let image_id = render::image::grid_to_png(&grid_clone);
 
         tokio::spawn(async move {
             println!("Attempting to send grid data to client.");

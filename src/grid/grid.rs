@@ -12,6 +12,8 @@ pub struct Frame {
 
 #[derive(Clone, serde::Serialize)]
 pub struct Grid {
+    pub width: usize,
+    pub height: usize,
     pub current_frame: usize,
     pub frames: Vec<Frame>,
 }
@@ -70,9 +72,27 @@ impl FromLua for Grid {
     }
 }
 
+impl Grid {
+    pub fn get_pixel(&self, x: u32, y: u32) -> [u8; 4] {
+        let idx = (y as usize) * DIMENSION + (x as usize);
+        if let Some(frame) = self.frames.get(0) {
+            if let Some(pixel) = frame.data.get(idx) {
+                return *pixel;
+            }
+        }
+
+        [0, 0, 0, 0]
+    }
+}
+
 pub fn execute_lua(code: &str) -> Result<Grid> {
     let lua = Lua::new();
-    let grid: Grid = Grid { current_frame: 0, frames: vec![ Frame {id: 1, data: vec![[0; 4]; DIMENSION*DIMENSION]}] };
+    let grid: Grid = Grid {
+        width: DIMENSION,
+        height: DIMENSION, 
+        current_frame: 0, 
+        frames: vec![ Frame {id: 1, data: vec![[0; 4]; DIMENSION*DIMENSION]}] 
+    };
 
     lua.globals().set("grid", grid)?;
     
