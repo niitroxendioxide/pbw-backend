@@ -7,10 +7,14 @@ use warp::Filter;
 mod config;
 mod grid;
 mod connections;
+mod render;
 
 fn process_source_code(ws_sender: connections::connections::WebSocketSender, source_code: &str) {       
     if let Ok(grid) = grid::execute_lua(source_code) {
         let grid_clone = grid.clone();
+
+
+        render::image::convert_from_grid(&grid_clone);
 
         tokio::spawn(async move {
             println!("Attempting to send grid data to client.");
@@ -42,6 +46,9 @@ async fn accept_websocket(websocket: warp::ws::WebSocket) {
 
 #[tokio::main]
 async fn main() {
+    // TESTING
+
+    //
     let ws_route = warp::path("ws")
         .and(warp::ws())
         .map(|ws: warp::ws::Ws| {

@@ -1,6 +1,6 @@
 use mlua::{Lua, Result, Table, UserData, UserDataMethods, FromLua};
 
-static DIMENSION: usize = 32;
+pub static DIMENSION: usize = 32;
 
 
 #[derive(Clone, serde::Serialize)]
