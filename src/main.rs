@@ -13,12 +13,19 @@ fn process_source_code(ws_sender: connections::connections::WebSocketSender, sou
     if let Ok(grid) = grid::execute_lua(source_code) {
         let grid_clone = grid.clone();
 
+        println!("Grid has  {}  frames", grid_clone.frame_count());
 
-        let image_id = render::image::grid_to_png(&grid_clone);
+        if grid_clone.frame_count() > 1 {
+            let img_dir = render::image::grid_to_gif(&grid_clone);
+
+            println!("[RENDERER]: GIF saved to {}", img_dir);
+        } else {
+            let img_dir = render::image::grid_to_png(&grid_clone);
+
+            println!("[RENDERER]: PNG saved to {}", img_dir);
+        }
 
         tokio::spawn(async move {
-            println!("Attempting to send grid data to client.");
-
             connections::connections::send_full_grid_data(ws_sender, grid_clone).await;
         });
     } else {

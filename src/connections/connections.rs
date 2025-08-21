@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use serde_json::json;
 use warp::filters::ws::Message;
 use futures_util::{stream::SplitSink, SinkExt};
 
@@ -17,11 +16,7 @@ struct FrameMessage<'a> {
 pub type WebSocketSender = Arc<Mutex<SplitSink<warp::ws::WebSocket, Message>>>;
 
 pub async fn send_full_grid_data(ws_sender: WebSocketSender, grid: Grid) {
-
-    println!("There is {} frames", grid.frames.len());
-
     for index in 0..grid.frames.len() {
-        println!("Now sending frame: {}", index);
         send_frame_to_client(ws_sender.clone(), &grid, index).await;
     }
 }

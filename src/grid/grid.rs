@@ -1,4 +1,5 @@
 use mlua::{Lua, Result, Table, UserData, UserDataMethods, FromLua};
+use image::{Rgba};
 
 pub static DIMENSION: usize = 32;
 
@@ -28,7 +29,6 @@ impl UserData for Grid {
                 base_frame_data[idx] = [r, g, b, 255];
             }
 
-            println!("Edited pixel. Pos: Vec2({}, {}) Color: RGB({}, {}, {})", x, y, r, g, b);
             Ok(())
         });
 
@@ -72,16 +72,35 @@ impl FromLua for Grid {
     }
 }
 
-impl Grid {
+impl Frame {
     pub fn get_pixel(&self, x: u32, y: u32) -> [u8; 4] {
         let idx = (y as usize) * DIMENSION + (x as usize);
-        if let Some(frame) = self.frames.get(0) {
-            if let Some(pixel) = frame.data.get(idx) {
-                return *pixel;
-            }
+        if let Some(pixel) = self.data.get(idx) {
+            return *pixel;
         }
 
         [0, 0, 0, 0]
+    }
+
+    pub fn get_pixel_as_rgba(&self, x: u32, y: u32) -> Rgba<u8> {
+        let pixel_data = self.get_pixel(x, y);
+
+        Rgba(pixel_data)
+    }
+}
+
+
+impl Grid {
+    pub fn get_frame(&self, frame_index: usize) -> &Frame {
+        if let Some(frame) = self.frames.get(frame_index) {
+            return &frame;
+        }
+
+        return &self.frames[0];
+    }
+
+    pub fn frame_count(&self) -> usize {
+        return self.frames.len();
     }
 }
 
