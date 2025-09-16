@@ -4,10 +4,7 @@ use futures_util::{StreamExt};
 use tokio::sync::Mutex;
 use warp::Filter;
 
-mod config;
-mod grid;
-mod connections;
-mod render;
+use backendcompiler::*; // Assuming your package name is "pbw-backend"
 
 fn process_source_code(ws_sender: connections::connections::WebSocketSender, source_code: &str) {       
     if let Ok(grid) = grid::execute_lua(source_code) {
@@ -53,7 +50,8 @@ async fn accept_websocket(websocket: warp::ws::WebSocket) {
 
 #[tokio::main]
 async fn main() {
-    // TESTING
+    // DATABASE
+    database::main::test();
 
     //
     let ws_route = warp::path("ws")
