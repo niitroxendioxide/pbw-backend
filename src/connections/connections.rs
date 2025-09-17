@@ -2,15 +2,49 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::filters::ws::Message;
 use futures_util::{stream::SplitSink, SinkExt};
+use serde::{Serialize, Deserialize};
 
 use crate::grid::{Grid};
 
-use serde::Serialize;
 
 #[derive(Serialize)]
 struct FrameMessage<'a> {
     frame_id: usize,
     frame_data: &'a Vec<[u8; 4]>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum ClientAction {
+    ProcessSourceCode,
+    PostToBucket,
+    RenderPreview,
+}
+
+#[derive(Debug, Serialize)]
+pub enum ServerAction {
+    FrameData,
+    Error,
+    UploadSuccess,
+    PreviewReady,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ClientData {
+    pub source: String,
+}
+
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ClientMessage {
+    pub action: ClientAction,
+    pub data: serde_json::Value,
+    pub request_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ServerMessage<'a> {
+    pub action: ServerAction,
+    pub data: &'a serde_json::Value,
 }
 
 pub type WebSocketSender = Arc<Mutex<SplitSink<warp::ws::WebSocket, Message>>>;
@@ -20,6 +54,7 @@ pub async fn send_full_grid_data(ws_sender: WebSocketSender, grid: Grid) {
         send_frame_to_client(ws_sender.clone(), &grid, index).await;
     }
 }
+
 
 fn wrap_frame_message<'a>(frame_id: usize, frame_data: &'a Vec<[u8; 4]>) -> FrameMessage<'a> {
     FrameMessage {

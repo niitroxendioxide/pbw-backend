@@ -4,31 +4,57 @@ use futures_util::{StreamExt};
 use tokio::sync::Mutex;
 use warp::Filter;
 
-use backendcompiler::*; // Assuming your package name is "pbw-backend"
+use backendcompiler::{connections::connections::{ClientAction, ClientData, ClientMessage}, *};
 
-fn process_source_code(ws_sender: connections::connections::WebSocketSender, source_code: &str) {       
-    if let Ok(grid) = grid::execute_lua(source_code) {
-        let grid_clone = grid.clone();
+// 0.0.0.0:8080
+static WS_ENDPOINT: ([u8;4], u16) = ([0, 0, 0, 0], 8080);
 
-        println!("Grid has  {}  frames", grid_clone.frame_count());
+fn process_source(source_code: &str) -> Result<Grid, ()> {       
+    match grid::execute_lua(source_code) {
+        Ok(grid) => Ok(grid),
+        Err(e) => {
+            println!("Failed to execute Lua script: {}", e);
+            Err(())
+        }
+    }
+}
 
-        if grid_clone.frame_count() > 1 {
-            let img_dir = render::image::grid_to_gif(&grid_clone);
-
-            println!("[RENDERER]: GIF saved to {}", img_dir);
-        } else {
-            let img_dir = render::image::grid_to_png(&grid_clone);
-
-            println!("[RENDERER]: PNG saved to {}", img_dir);
+async fn match_request_action(mutex_sender: connections::connections::WebSocketSender, packet: ClientMessage, client_data: ClientData) {
+    match packet.action {
+        ClientAction::ProcessSourceCode => {
+            let source_code = &client_data.source.to_owned();
+            if let Ok(grid) = process_source(source_code) {
+                tokio::spawn(async move {
+                    connections::connections::send_full_grid_data(mutex_sender, grid).await;
+                });
+            };
         }
 
-        tokio::spawn(async move {
-            connections::connections::send_full_grid_data(ws_sender, grid_clone).await;
-        });
-    } else {
-        println!("Failed to execute Lua script");
+        ClientAction::PostToBucket => {
+
+        }
+
+        ClientAction::RenderPreview => {
+
+        }
     }
-} 
+}
+
+async fn process_message(msg: warp::ws::Message, mutex_sender: connections::connections::WebSocketSender) {
+    if let Ok(text) = msg.to_str() {
+        match serde_json::from_str::<ClientMessage>(text) {
+            Ok(packet) => {                
+                match serde_json::from_value::<ClientData>(packet.data) {
+                    Ok(client_data) => {match_request_action(mutex_sender, packet, client_data).await},
+                    Err(e) => println!("Error extracting packet data {}", e)
+                }
+
+            },
+
+            Err(e) => println!("Error processing client message: {}", e)
+        }
+    }
+}
 
 async fn accept_websocket(websocket: warp::ws::WebSocket) {
     let (sender, mut receiver) = websocket.split();
@@ -36,23 +62,14 @@ async fn accept_websocket(websocket: warp::ws::WebSocket) {
 
     while let Some(msg) = receiver.next().await {
         match msg {
-            Ok(message) => {
-                if let Ok(source_code) = message.to_str() {
-                    process_source_code(mutex_sender.clone(), source_code);
-                };
-            },
-            Err(err) => {
-                println!("Connection error: {}", err);
-            }
+            Ok(msg) => process_message(msg, mutex_sender.clone()).await,
+            Err(err) => println!("Connection error: {}", err)
         }
     }
 }
 
 #[tokio::main]
 async fn main() {
-    // DATABASE
-    database::main::test();
-
     //
     let ws_route = warp::path("ws")
         .and(warp::ws())
@@ -60,5 +77,5 @@ async fn main() {
             ws.on_upgrade(accept_websocket)
         });
 
-    warp::serve(ws_route).run(([0, 0, 0, 0], 8080)).await;
+    warp::serve(ws_route).run(WS_ENDPOINT).await;
 }

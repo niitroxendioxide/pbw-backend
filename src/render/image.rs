@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::grid::{Grid};
 
 pub const FRAMES_PER_SECOND: u32 = 24;
-pub const OUTPUT_DIRECTORY: &str = "output";
+pub const OUTPUT_DIRECTORY: &str = "output/images";
 
 pub fn grid_to_png(grid: &Grid) -> String {
     let width = grid.width as u32;
