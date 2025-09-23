@@ -19,8 +19,8 @@ fn process_source(source_code: &str) -> Result<Grid, ()> {
     }
 }
 
-async fn match_request_action(mutex_sender: connections::connections::WebSocketSender, packet: ClientMessage, client_data: ClientData) {
-    match packet.action {
+async fn match_request_action(mutex_sender: connections::connections::WebSocketSender, action: connections::connections::ClientAction, client_data: ClientData) {
+    match action {
         ClientAction::ProcessSourceCode => {
             let source_code = &client_data.source.to_owned();
             if let Ok(grid) = process_source(source_code) {
@@ -45,7 +45,7 @@ async fn process_message(msg: warp::ws::Message, mutex_sender: connections::conn
         match serde_json::from_str::<ClientMessage>(text) {
             Ok(packet) => {                
                 match serde_json::from_value::<ClientData>(packet.data) {
-                    Ok(client_data) => {match_request_action(mutex_sender, packet, client_data).await},
+                    Ok(client_data) => {match_request_action(mutex_sender, packet.action, client_data).await},
                     Err(e) => println!("Error extracting packet data {}", e)
                 }
 
