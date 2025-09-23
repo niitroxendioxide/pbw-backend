@@ -8,7 +8,7 @@ use crate::grid::{Grid};
 pub const FRAMES_PER_SECOND: u32 = 24;
 pub const OUTPUT_DIRECTORY: &str = "output/images";
 
-pub fn grid_to_png(grid: &Grid) -> String {
+pub fn grid_to_png(grid: &Grid) -> (String, String) {
     let width = grid.width as u32;
     let height = grid.height as u32;
     let first_frame = grid.get_frame(1);
@@ -33,10 +33,10 @@ pub fn grid_to_png(grid: &Grid) -> String {
         image::ColorType::Rgba8,
     ).unwrap();
 
-    image_path
+    (image_path, image_id.to_string())
 }
 
-pub fn grid_to_gif(grid: &Grid) -> String {
+pub fn grid_to_gif(grid: &Grid) -> (String, String) {
     let width = grid.width as u32;
     let height = grid.height as u32;
 
@@ -51,7 +51,7 @@ pub fn grid_to_gif(grid: &Grid) -> String {
     if let Err(e) = encoder.set_repeat(Repeat::Infinite) {
         eprintln!("Failed to set GIF repeat: {}", e);
 
-        return String::new();
+        return (String::new(), String::new());
     }
 
     for frame in &grid.frames {
@@ -69,5 +69,5 @@ pub fn grid_to_gif(grid: &Grid) -> String {
 
     encoder.encode_frames(frames.into_iter()).unwrap();
 
-    image_path
+    (image_path, image_id.to_string())
 }

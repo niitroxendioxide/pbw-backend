@@ -24,14 +24,25 @@ async fn match_request_action(mutex_sender: connections::connections::WebSocketS
         ClientAction::ProcessSourceCode => {
             let source_code = &client_data.source.to_owned();
             if let Ok(grid) = process_source(source_code) {
-                tokio::spawn(async move {
-                    connections::connections::send_full_grid_data(mutex_sender, grid).await;
-                });
+                connections::connections::send_full_grid_data(mutex_sender, grid).await;
             };
         }
 
         ClientAction::PostToBucket => {
+            let source_code = &client_data.source.to_owned();
+            if let Ok(grid) = process_source(source_code) {
+                let (path_to_image, image_uuid) = if grid.frame_count() > 1 {
+                    render::image::grid_to_gif(&grid)
+                } else {
+                    render::image::grid_to_png(&grid)
+                };
 
+                if let Ok(url_result) = render::net::upload_to_minio(&path_to_image, &image_uuid, ".gif").await {
+                    connections::connections::send_url_to_client(mutex_sender, &url_result).await;
+                } else {
+                    println!("Error when sending url back to client.");
+                };
+            }
         }
 
         ClientAction::RenderPreview => {
