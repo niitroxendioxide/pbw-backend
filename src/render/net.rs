@@ -1,5 +1,5 @@
 use aws_sdk_s3::{
-
+    error::DisplayErrorContext,
     primitives::ByteStream,
     Client,
     config::{Credentials, Region, BehaviorVersion},
@@ -9,11 +9,11 @@ use dotenvy::dotenv;
 use std::env;
 use std::path::Path;
 
-static MINIO_PORT: &str = "localhost:9000";
+static MINIO_ENDPOINT: &str = "http://localhost:9000";
 static REGION: &str = "sa-east-1";
 
 
-pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: &str) ->  Result<String, Box<dyn std::error::Error>> {
+pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: &str) -> Result<String, Box<dyn std::error::Error>> {
     dotenv().ok();
     
     let access_key: String = env::var("MINIO_ACCESS_KEY").expect("MINIO_ACCESS_KEY Required in .env");
@@ -30,7 +30,7 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
             None,
             "minio",
         ))
-        .endpoint_url(MINIO_PORT)
+        .endpoint_url(MINIO_ENDPOINT) // Now uses the correct URL
         .behavior_version(BehaviorVersion::v2025_08_07())
         .force_path_style(true)
         .build();
@@ -39,13 +39,23 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
     let body = ByteStream::from_path(Path::new(file_path)).await?;
     let image_out = format!("uploads/{}.{}", image_uuid, file_extension);
 
-    minio_client.put_object().bucket(&bucket_name)
+    // Send the request and handle potential errors with more detail
+    let send_result = minio_client.put_object()
+        .bucket(&bucket_name)
         .key(&image_out)
         .body(body)
         .send()
-        .await?;
+        .await;
 
-    let public_url = format!("{}/{}/{}", MINIO_PORT, bucket_name, image_out);
-
-    Ok(public_url)
+    match send_result {
+        Ok(_) => {
+            let public_url = format!("{}/{}/{}", MINIO_ENDPOINT, bucket_name, image_out);
+            Ok(public_url)
+        },
+        Err(e) => {
+            // Use DisplayErrorContext for a detailed, chain-of-events error report
+            eprintln!("Detailed upload error: {}", DisplayErrorContext(&e));
+            Err(Box::new(e))
+        }
+    }
 }
