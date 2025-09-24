@@ -1,5 +1,4 @@
 use std::sync::Arc;
-
 use futures_util::StreamExt;
 use tokio::sync::Mutex;
 use warp::Filter;
@@ -8,9 +7,6 @@ use backendcompiler::{
     connections::connections::{ClientAction, ClientData, ClientMessage},
     *,
 };
-
-// 0.0.0.0:8080
-static WS_ENDPOINT: ([u8; 4], u16) = ([0, 0, 0, 0], 8080);
 
 fn process_source(source_code: &str) -> Result<Grid, ()> {
     match grid::execute_lua(source_code) {
@@ -46,16 +42,14 @@ async fn match_request_action(
                     render::image::grid_to_png(&grid)
                 };
 
-                if let Ok(url_result) =
-                    render::net::upload_to_minio(&path_to_image, &image_uuid, ".gif").await
-                {
-                    tokio::spawn(async move {
-                        connections::connections::send_url_to_client(mutex_sender, &url_result)
-                            .await;
-                    });
-                } else {
-                    println!("Error when sending url back to client.");
-                };
+                match render::net::upload_to_minio(&path_to_image, &image_uuid, ".gif").await {
+                    Ok(url_result) => {
+                        tokio::spawn(async move {
+                            connections::connections::send_url_to_client(mutex_sender, &url_result).await;
+                        });
+                    },
+                    Err(e) => println!("Error when uploading to minio {}", e)
+                }
             }
         }
 

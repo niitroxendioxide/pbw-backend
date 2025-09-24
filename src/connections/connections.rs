@@ -6,17 +6,6 @@ use warp::filters::ws::Message;
 
 use crate::grid::Grid;
 
-#[derive(Serialize)]
-struct FrameMessage<'a> {
-    frame_id: usize,
-    frame_data: &'a Vec<[u8; 4]>,
-}
-
-#[derive(Serialize)]
-struct ServerResponseData<'a> {
-    frame: FrameMessage<'a>,
-}
-
 #[derive(Debug, Deserialize, Clone)]
 #[serde(from = "u8")]
 pub enum ClientAction {
@@ -36,6 +25,7 @@ impl From<u8> for ClientAction {
     }
 }
 
+// TODO: serialize as numbers (?) 
 #[derive(Debug, Serialize)]
 pub enum ServerAction {
     FrameData = 0,
@@ -70,10 +60,7 @@ pub async fn send_full_grid_data(ws_sender: WebSocketSender, grid: Grid) {
 }
 
 fn wrap_frame_message<'a>(frame_id: usize, frame_data: &'a Vec<[u8; 4]>) -> ServerMessage {
-    /*let frame_data_packed = FrameMessage {
-        frame_data,
-        frame_id,
-    };*/
+    // TODO: Add also the delay before this frame plays/until next frame
 
     ServerMessage {
         action: ServerAction::FrameData,

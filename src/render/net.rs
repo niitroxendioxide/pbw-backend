@@ -1,9 +1,11 @@
 use aws_sdk_s3::{
+
     primitives::ByteStream,
     Client,
-    config::{Credentials, Region},
+    config::{Credentials, Region, BehaviorVersion},
 };
 
+use dotenvy::dotenv;
 use std::env;
 use std::path::Path;
 
@@ -12,6 +14,8 @@ static REGION: &str = "sa-east-1";
 
 
 pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: &str) ->  Result<String, Box<dyn std::error::Error>> {
+    dotenv().ok();
+    
     let access_key: String = env::var("MINIO_ACCESS_KEY").expect("MINIO_ACCESS_KEY Required in .env");
     let secret_access_key: String = env::var("MINIO_SECRET_KEY").expect("MINIO_SECRET_KEY Required in .env");
     let bucket_name: String = env::var("MINIO_NAME").expect("MINIO_NAME Required in .env");
@@ -27,6 +31,7 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
             "minio",
         ))
         .endpoint_url(MINIO_PORT)
+        .behavior_version(BehaviorVersion::v2025_08_07())
         .force_path_style(true)
         .build();
 

@@ -16,4 +16,4 @@ image = "0.25.6"
 uuid = { version = "0.8", features = ["v4", "serde"] } 
 chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15"
-aws-sdk-s3 = "1.106.0"
+aws-sdk-s3 = {version = "1.106.0", features = ["behavior-version-latest"]}
