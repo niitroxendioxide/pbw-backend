@@ -37,7 +37,7 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
 
     let minio_client = Client::from_conf(minio_config);
     let body = ByteStream::from_path(Path::new(file_path)).await?;
-    let image_out = format!("uploads/{}.{}", image_uuid, file_extension);
+    let image_out = format!("uploads/{}{}", image_uuid, file_extension);
 
     // Send the request and handle potential errors with more detail
     let send_result = minio_client.put_object()

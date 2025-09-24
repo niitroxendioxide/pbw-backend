@@ -36,13 +36,15 @@ async fn match_request_action(
         ClientAction::PostToBucket => {
             let source_code = &client_data.source.to_owned();
             if let Ok(grid) = process_source(source_code) {
+                let mut file_extension = ".gif";
                 let (path_to_image, image_uuid) = if grid.frame_count() > 1 {
                     render::image::grid_to_gif(&grid)
                 } else {
+                    file_extension = ".png";
                     render::image::grid_to_png(&grid)
                 };
 
-                match render::net::upload_to_minio(&path_to_image, &image_uuid, ".gif").await {
+                match render::net::upload_to_minio(&path_to_image, &image_uuid, file_extension).await {
                     Ok(url_result) => {
                         tokio::spawn(async move {
                             connections::connections::send_url_to_client(mutex_sender, &url_result).await;
