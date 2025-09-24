@@ -1,11 +1,10 @@
+use futures_util::{SinkExt, stream::SplitSink};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::filters::ws::Message;
-use futures_util::{stream::SplitSink, SinkExt};
-use serde::{Serialize, Deserialize};
 
-use crate::grid::{Grid};
-
+use crate::grid::Grid;
 
 #[derive(Serialize)]
 struct FrameMessage<'a> {
@@ -19,18 +18,30 @@ struct ServerResponseData<'a> {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(from = "u8")]
 pub enum ClientAction {
     ProcessSourceCode,
     PostToBucket,
     RenderPreview,
 }
 
+impl From<u8> for ClientAction {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => ClientAction::ProcessSourceCode,
+            1 => ClientAction::PostToBucket,
+            2 => ClientAction::RenderPreview,
+            _ => ClientAction::ProcessSourceCode, // default fallback
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub enum ServerAction {
-    FrameData,
-    Error,
-    UploadSuccess,
-    PreviewReady,
+    FrameData = 0,
+    Error = 1,
+    UploadSuccess = 2,
+    PreviewReady = 3,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,12 +49,10 @@ pub struct ClientData {
     pub source: String,
 }
 
-
 #[derive(Debug, Deserialize, Clone)]
 pub struct ClientMessage {
     pub action: ClientAction,
     pub data: serde_json::Value,
-    pub request_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -59,7 +68,6 @@ pub async fn send_full_grid_data(ws_sender: WebSocketSender, grid: Grid) {
         send_frame_to_client(ws_sender.clone(), &grid, index).await;
     }
 }
-
 
 fn wrap_frame_message<'a>(frame_id: usize, frame_data: &'a Vec<[u8; 4]>) -> ServerMessage {
     /*let frame_data_packed = FrameMessage {
@@ -83,7 +91,7 @@ pub async fn send_url_to_client(ws_sender: WebSocketSender, minio_url: &str) {
         action: ServerAction::UploadSuccess,
         data: serde_json::json!({
             "urlBucket": minio_url,
-        })
+        }),
     };
 
     let stringified = serde_json::to_string(&packet).unwrap();
@@ -92,7 +100,6 @@ pub async fn send_url_to_client(ws_sender: WebSocketSender, minio_url: &str) {
     if let Err(message_sent_error) = ws_sender.lock().await.send(sent_packet).await {
         println!("Error upon sending url to client: {}", message_sent_error);
     }
-
 }
 
 pub async fn send_frame_to_client(ws_sender: WebSocketSender, grid: &Grid, frame: usize) {
