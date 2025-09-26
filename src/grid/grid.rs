@@ -32,6 +32,21 @@ impl UserData for Grid {
             Ok(())
         });
 
+        methods.add_method_mut("set_area", |_, this: &mut Grid, (top, left, width, height, r, g, b) : (i64, i64, i64, i64, u8, u8, u8)| {
+            let base_frame_data = &mut this.frames[this.current_frame].data;
+
+            for x in left..(left + width) {
+                for y in top..(top + height) {
+                    let idx = (y * (DIMENSION as i64) + x) as usize;
+                    if idx < (DIMENSION*DIMENSION) { // TODO: replace for actual size, and use different indexers
+                        base_frame_data[idx] = [r, g, b, 255];
+                    }
+                }
+            }
+
+            Ok(())
+        });
+
         methods.add_method_mut("create_frame", |_, this, ()| {
             let new_frame = Frame {
                 id: this.frames.len() + 1,

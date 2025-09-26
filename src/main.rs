@@ -64,8 +64,6 @@ async fn process_message(
     mutex_sender: connections::connections::WebSocketSender,
 ) {
     if let Ok(text) = msg.to_str() {
-        println!("Received message: {}", text);
-
         match serde_json::from_str::<ClientMessage>(text) {
             Ok(packet) => {
                 match serde_json::from_value::<ClientData>(packet.data) {

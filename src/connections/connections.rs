@@ -54,7 +54,7 @@ pub struct ServerMessage {
 pub type WebSocketSender = Arc<Mutex<SplitSink<warp::ws::WebSocket, Message>>>;
 
 pub async fn send_full_grid_data(ws_sender: WebSocketSender, grid: Grid) {
-    for index in 0..grid.frames.len() {
+    for index in 0..grid.frame_count() {
         send_frame_to_client(ws_sender.clone(), &grid, index).await;
     }
 }
