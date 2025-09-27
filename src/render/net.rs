@@ -18,7 +18,7 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
     
     let access_key: String = env::var("MINIO_ACCESS_KEY").expect("MINIO_ACCESS_KEY Required in .env");
     let secret_access_key: String = env::var("MINIO_SECRET_KEY").expect("MINIO_SECRET_KEY Required in .env");
-    let bucket_name: String = env::var("MINIO_NAME").expect("MINIO_NAME Required in .env");
+    let bucket_name: &str = "images"; // env::var("MINIO_NAME").expect("MINIO_NAME Required in .env");
     let minio_region = Region::new(REGION);
 
     let minio_config = aws_sdk_s3::config::Builder::new()
@@ -37,11 +37,11 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
 
     let minio_client = Client::from_conf(minio_config);
     let body = ByteStream::from_path(Path::new(file_path)).await?;
-    let image_out = format!("uploads/{}{}", image_uuid, file_extension);
+    let image_out = format!("images/{}{}", image_uuid, file_extension);
 
     // Send the request and handle potential errors with more detail
     let send_result = minio_client.put_object()
-        .bucket(&bucket_name)
+        .bucket(bucket_name)
         .key(&image_out)
         .body(body)
         .send()
@@ -53,7 +53,6 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
             Ok(public_url)
         },
         Err(e) => {
-            // Use DisplayErrorContext for a detailed, chain-of-events error report
             eprintln!("Detailed upload error: {}", DisplayErrorContext(&e));
             Err(Box::new(e))
         }
