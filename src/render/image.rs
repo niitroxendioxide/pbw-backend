@@ -33,8 +33,6 @@ pub fn grid_to_png(grid: &Grid) -> (String, String) {
         image::ColorType::Rgba8,
     ).unwrap();
 
-
-
     (image_path, image_id.to_string())
 }
 
