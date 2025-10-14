@@ -1,6 +1,6 @@
 use image::{codecs::gif::{GifEncoder, Repeat}, Delay, Frame, ImageBuffer, RgbaImage};
 use std::path::Path;
-use std::fs::File;
+use std::fs::{File, create_dir_all};
 use uuid::Uuid;
 
 use crate::grid::{Grid};
@@ -22,16 +22,24 @@ pub fn grid_to_png(grid: &Grid) -> (String, String) {
     }
 
     let image_id = Uuid::new_v4();
+    
+    // Create output directory if it doesn't exist
+    if let Err(e) = create_dir_all(OUTPUT_DIRECTORY) {
+        eprintln!("Failed to create output directory: {}", e);
+    }
+    
     let image_path = format!("{}/{}.png", OUTPUT_DIRECTORY, image_id);
     let path = Path::new(&image_path);
 
-    image::save_buffer(
+    if let Err(e) = image::save_buffer(
         path,
         &img.into_raw(),
         width,
         height,
         image::ColorType::Rgba8,
-    ).unwrap();
+    ) {
+        eprintln!("Failed to save PNG image: {}", e);
+    }
 
     (image_path, image_id.to_string())
 }
@@ -41,16 +49,28 @@ pub fn grid_to_gif(grid: &Grid) -> (String, String) {
     let height = grid.height as u32;
 
     let image_id = Uuid::new_v4();
+    
+    // Create output directory if it doesn't exist
+    if let Err(e) = create_dir_all(OUTPUT_DIRECTORY) {
+        eprintln!("Failed to create output directory: {}", e);
+    }
+    
     let image_path = format!("{}/{}.gif", OUTPUT_DIRECTORY, image_id);
     let path = Path::new(&image_path);
 
-    let file = File::create(path).unwrap();
+    let file = match File::create(path) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Failed to create GIF file: {}", e);
+            return (String::new(), String::new());
+        }
+    };
+    
     let mut encoder = GifEncoder::new(file);
     let mut frames = Vec::new();
 
     if let Err(e) = encoder.set_repeat(Repeat::Infinite) {
         eprintln!("Failed to set GIF repeat: {}", e);
-
         return (String::new(), String::new());
     }
 
@@ -67,7 +87,10 @@ pub fn grid_to_gif(grid: &Grid) -> (String, String) {
         frames.push(frame);
     }
 
-    encoder.encode_frames(frames.into_iter()).unwrap();
+    if let Err(e) = encoder.encode_frames(frames.into_iter()) {
+        eprintln!("Failed to encode GIF frames: {}", e);
+        return (String::new(), String::new());
+    }
 
     (image_path, image_id.to_string())
 }
