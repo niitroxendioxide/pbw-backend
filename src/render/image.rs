@@ -9,8 +9,8 @@ pub const FRAMES_PER_SECOND: u32 = 24;
 pub const OUTPUT_DIRECTORY: &str = "output/images";
 
 pub fn grid_to_png(grid: &Grid) -> (String, String) {
-    let width = grid.width as u32;
-    let height = grid.height as u32;
+    let width = grid.size as u32;
+    let height = grid.size as u32;
     let first_frame = grid.get_frame(1);
     let mut img = ImageBuffer::new(width, height);
 
@@ -45,8 +45,8 @@ pub fn grid_to_png(grid: &Grid) -> (String, String) {
 }
 
 pub fn grid_to_gif(grid: &Grid) -> (String, String) {
-    let width = grid.width as u32;
-    let height = grid.height as u32;
+    let width = grid.size as u32;
+    let height = grid.size as u32;
 
     let image_id = Uuid::new_v4();
     

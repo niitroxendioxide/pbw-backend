@@ -8,8 +8,8 @@ use backendcompiler::{
     *,
 };
 
-fn process_source(source_code: &str) -> Result<Grid, ()> {
-    match grid::execute_lua(source_code) {
+fn process_source(source_code: &str, grid_dimension: usize) -> Result<Grid, ()> {
+    match grid::execute_lua(source_code, grid_dimension) {
         Ok(grid) => Ok(grid),
         Err(e) => {
             println!("Failed to execute Lua script: {}", e);
@@ -26,7 +26,8 @@ async fn match_request_action(
     match action {
         ClientAction::ProcessSourceCode => {
             let source_code = &client_data.source.to_owned();
-            if let Ok(grid) = process_source(source_code) {
+            let grid_dimension = client_data.dimension;
+            if let Ok(grid) = process_source(source_code, grid_dimension) {
                 tokio::spawn(async move {
                     connections::connections::send_full_grid_data(mutex_sender, grid).await;
                 });
@@ -35,7 +36,9 @@ async fn match_request_action(
 
         ClientAction::PostToBucket => {
             let source_code = &client_data.source.to_owned();
-            if let Ok(grid) = process_source(source_code) {
+            let grid_dimension = client_data.dimension;
+
+            if let Ok(grid) = process_source(source_code, grid_dimension) {
                 let mut file_extension = ".gif";
                 let (path_to_image, image_uuid) = if grid.frame_count() > 1 {
                     render::image::grid_to_gif(&grid)

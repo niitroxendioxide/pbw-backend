@@ -37,6 +37,7 @@ pub enum ServerAction {
 #[derive(Debug, Deserialize)]
 pub struct ClientData {
     pub source: String,
+    pub dimension: usize,
 }
 
 #[derive(Debug, Deserialize, Clone)]

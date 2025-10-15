@@ -1,22 +1,29 @@
 use mlua::{Lua, Result, Table, UserData, UserDataMethods, FromLua};
 use image::{Rgba};
 
-pub static DIMENSION: usize = 32;
-
-
 #[derive(Clone, serde::Serialize)]
 pub struct Frame {
     pub id: usize,
+    pub size: usize,
     pub data: Vec<[u8; 4]>,
 }
 
 
 #[derive(Clone, serde::Serialize)]
 pub struct Grid {
-    pub width: usize,
-    pub height: usize,
+    pub size: usize,
     pub current_frame: usize,
     pub frames: Vec<Frame>,
+}
+
+fn get_location(size_dimension: usize, x: i64, y: i64) -> usize {
+    let corrected_x = x.clamp(0, size_dimension as i64);
+    
+    return (corrected_x + (y * size_dimension as i64)) as usize;
+}
+
+fn is_index_in_bounds(idx: usize, size_dimension: usize) -> bool {
+    return idx < (size_dimension*size_dimension);
 }
 
 impl UserData for Grid {
@@ -24,21 +31,31 @@ impl UserData for Grid {
 
         methods.add_method_mut("set_pixel", |_, this, (x, y, r, g, b): (i64, i64, u8, u8, u8)| {
             let base_frame_data = &mut this.frames[this.current_frame].data;
-            let idx = (y * (DIMENSION as i64) + x) as usize;
-            if idx < (DIMENSION*DIMENSION) {
+            let idx = get_location(this.size, x, y);
+            if is_index_in_bounds(idx, this.size) {
                 base_frame_data[idx] = [r, g, b, 255];
             }
 
             Ok(())
         });
 
-        methods.add_method_mut("set_area", |_, this: &mut Grid, (top, left, width, height, r, g, b) : (i64, i64, i64, i64, u8, u8, u8)| {
+        methods.add_method_mut("set_pixel_rgba", |_, this, (x, y, r, g, b, a): (i64, i64, u8, u8, u8, u8)| {
+            let base_frame_data = &mut this.frames[this.current_frame].data;
+            let idx = get_location(this.size, x, y);
+            if is_index_in_bounds(idx, this.size) {
+                base_frame_data[idx] = [r, g, b, a];
+            }
+
+            Ok(())
+        });
+
+        methods.add_method_mut("set_area", |_, this: &mut Grid, (left, top, width, height, r, g, b) : (i64, i64, i64, i64, u8, u8, u8)| {
             let base_frame_data = &mut this.frames[this.current_frame].data;
 
             for x in left..(left + width) {
                 for y in top..(top + height) {
-                    let idx = (y * (DIMENSION as i64) + x) as usize;
-                    if idx < (DIMENSION*DIMENSION) { // TODO: replace for actual size, and use different indexers
+                    let idx = get_location(this.size, x, y);
+                    if is_index_in_bounds(idx, this.size) {
                         base_frame_data[idx] = [r, g, b, 255];
                     }
                 }
@@ -48,12 +65,7 @@ impl UserData for Grid {
         });
 
         methods.add_method_mut("create_frame", |_, this, ()| {
-            let new_frame = Frame {
-                id: this.frames.len() + 1,
-                data: vec![[0; 4]; DIMENSION*DIMENSION]
-            };
-
-            this.frames.push(new_frame);
+            this.create_frame();
 
             Ok(())
         });
@@ -89,7 +101,7 @@ impl FromLua for Grid {
 
 impl Frame {
     pub fn get_pixel(&self, x: u32, y: u32) -> [u8; 4] {
-        let idx = (y as usize) * DIMENSION + (x as usize);
+        let idx = (y as usize) * self.size + (x as usize);
         if let Some(pixel) = self.data.get(idx) {
             return *pixel;
         }
@@ -114,19 +126,30 @@ impl Grid {
         return &self.frames[0];
     }
 
+    pub fn create_frame(&mut self) {
+        let new_frame = Frame {
+            id: self.frame_count() + 1,
+            size: self.size,
+            data: vec![[0; 4]; self.size*self.size]
+        };
+
+        self.frames.push(new_frame);
+    }
+
     pub fn frame_count(&self) -> usize {
         return self.frames.len();
     }
 }
 
-pub fn execute_lua(code: &str) -> Result<Grid> {
+pub fn execute_lua(code: &str, p_dimension: usize) -> Result<Grid> {
     let lua = Lua::new();
-    let grid: Grid = Grid {
-        width: DIMENSION,
-        height: DIMENSION, 
+    let mut grid: Grid = Grid {
+        size: p_dimension,
         current_frame: 0, 
-        frames: vec![ Frame {id: 1, data: vec![[0; 4]; DIMENSION*DIMENSION]}] 
+        frames: vec![] 
     };
+
+    grid.create_frame();
 
     lua.globals().set("grid", grid)?;
     
