@@ -27,6 +27,10 @@ async fn match_request_action(
         ClientAction::ProcessSourceCode => {
             let source_code = &client_data.source.to_owned();
             let grid_dimension = client_data.dimension;
+            if (grid_dimension < 1) || (grid_dimension > 1024) {
+                return;
+            }
+
             if let Ok(grid) = process_source(source_code, grid_dimension) {
                 tokio::spawn(async move {
                     connections::connections::send_full_grid_data(mutex_sender, grid).await;
@@ -37,6 +41,9 @@ async fn match_request_action(
         ClientAction::PostToBucket => {
             let source_code = &client_data.source.to_owned();
             let grid_dimension = client_data.dimension;
+            if (grid_dimension < 1) || (grid_dimension > 1024) {
+                return;
+            }
 
             if let Ok(grid) = process_source(source_code, grid_dimension) {
                 let mut file_extension = ".gif";

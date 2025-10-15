@@ -23,7 +23,7 @@ fn get_location(size_dimension: usize, x: i64, y: i64) -> usize {
 }
 
 fn is_index_in_bounds(idx: usize, size_dimension: usize) -> bool {
-    return idx < (size_dimension*size_dimension);
+    return idx < ((size_dimension*size_dimension) - 1);
 }
 
 impl UserData for Grid {
