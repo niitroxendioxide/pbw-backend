@@ -111,7 +111,7 @@ async fn accept_websocket(websocket: warp::ws::WebSocket) {
 #[tokio::main]
 async fn main() {
     //
-    let ws_route = warp::path("ws")
+    let ws_route = warp::path("processor")
         .and(warp::ws())
         .map(|ws: warp::ws::Ws| ws.on_upgrade(accept_websocket));
 
