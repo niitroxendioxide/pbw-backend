@@ -100,3 +100,19 @@ pub async fn send_frame_to_client(ws_sender: WebSocketSender, grid: &Grid, frame
         println!("Error sending frame data to client: {}", message_send_error);
     }
 }
+
+pub async fn send_error(ws_sender: WebSocketSender, error: &str) {
+    let packet = ServerMessage {
+        action: ServerAction::Error,
+        data: serde_json::json!({
+            "message": error.to_string(),
+        }),
+    };
+
+    let stringified = serde_json::to_string(&packet).unwrap();
+    let sent_packet = Message::text(stringified);
+
+    if let Err(message_sent_error) = ws_sender.lock().await.send(sent_packet).await {
+        println!("Error sending error message to client: {}", message_sent_error);
+    }
+}

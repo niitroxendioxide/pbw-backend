@@ -13,7 +13,7 @@ static MINIO_ENDPOINT: &str = "http://localhost:9000";
 static REGION: &str = "sa-east-1";
 
 
-pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     dotenv().ok();
     
     let access_key: String = env::var("MINIO_ACCESS_KEY").expect("MINIO_ACCESS_KEY Required in .env");
@@ -36,24 +36,31 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
         .build();
 
     let minio_client = Client::from_conf(minio_config);
-    let body = ByteStream::from_path(Path::new(file_path)).await?;
-    let image_out = format!("{}{}", image_uuid, file_extension);
-
-    // Send the request and handle potential errors with more detail
-    let send_result = minio_client.put_object()
-        .bucket(bucket_name)
-        .key(&image_out)
-        .body(body)
-        .send()
-        .await;
-
-    match send_result {
-        Ok(_) => {
-            let public_url = format!("{}/{}/{}", MINIO_ENDPOINT, bucket_name, image_out);
-            Ok(public_url)
+    match ByteStream::from_path(Path::new(file_path)).await {
+        Ok(body) => {
+            let image_out = format!("{}{}", image_uuid, file_extension);
+        
+            // Send the request and handle potential errors with more detail
+            let send_result = minio_client.put_object()
+                .bucket(bucket_name)
+                .key(&image_out)
+                .body(body)
+                .send()
+                .await;
+        
+            match send_result {
+                Ok(_) => {
+                    let public_url = format!("{}/{}/{}", MINIO_ENDPOINT, bucket_name, image_out);
+                    Ok(public_url)
+                },
+                Err(e) => {
+                    eprintln!("Detailed upload error: {}", DisplayErrorContext(&e));
+                    Err(Box::new(e))
+                }
+            }
         },
         Err(e) => {
-            eprintln!("Detailed upload error: {}", DisplayErrorContext(&e));
+            eprintln!("Detailed file read error: {}", DisplayErrorContext(&e));
             Err(Box::new(e))
         }
     }

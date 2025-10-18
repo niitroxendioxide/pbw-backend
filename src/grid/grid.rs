@@ -151,16 +151,24 @@ pub fn execute_lua(code: &str, p_dimension: usize) -> Result<Grid> {
 
     grid.create_frame();
 
-    lua.globals().set("grid", grid)?;
-    
-    // Sandboxing
-    lua.load("os = nil; io = nil; debug = nil;").exec()?;
+    match lua.globals().set("grid", grid) {
+        Ok(_) => (),
+        Err(err) => return Err(err),
+    };
+
+    match lua.load("os = nil; io = nil; debug = nil;").exec() {
+        Ok(_) => (),
+        Err(err) => return Err(err),
+    }   
     
     let chunk = lua.load(code);
-    chunk.exec()?;
+    if let Err(err) = chunk.exec() {
+        return Err(err);
+    }
 
     let globals = lua.globals() as Table;
-    let grid: Grid = globals.get::<Grid>("grid")?;
-
-    Ok(grid)
+    match globals.get::<Grid>("grid") {
+        Ok(grid) => Ok(grid),
+        Err(err) => Err(err),
+    }
 }

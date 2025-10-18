@@ -4,16 +4,16 @@ use tokio::sync::Mutex;
 use warp::Filter;
 
 use backendcompiler::{
-    connections::connections::{ClientAction, ClientData, ClientMessage},
+    connections::connections::{*, ClientAction, ClientData, ClientMessage},
     *,
 };
 
-fn process_source(source_code: &str, grid_dimension: usize) -> Result<Grid, ()> {
+fn process_source(source_code: &str, grid_dimension: usize) -> Result<Grid, String> {
     match grid::execute_lua(source_code, grid_dimension) {
         Ok(grid) => Ok(grid),
         Err(e) => {
-            println!("Failed to execute Lua script: {}", e);
-            Err(())
+            println!("\x1b[31m[Lua]\x1b[0m Failed to execute: {}", e);
+            return Err(e.to_string());
         }
     }
 }
@@ -31,10 +31,17 @@ async fn match_request_action(
                 return;
             }
 
-            if let Ok(grid) = process_source(source_code, grid_dimension) {
-                tokio::spawn(async move {
-                    connections::connections::send_full_grid_data(mutex_sender, grid).await;
-                });
+            match process_source(source_code, grid_dimension) {
+                Ok(grid) => { 
+                    tokio::spawn(async move {
+                        send_full_grid_data(mutex_sender, grid).await;
+                    })
+                },
+                Err(error_code) => {
+                    tokio::spawn(async move {
+                        send_error(mutex_sender, &error_code).await;
+                    })
+                }
             };
         }
 
@@ -57,7 +64,7 @@ async fn match_request_action(
                 match render::net::upload_to_minio(&path_to_image, &image_uuid, file_extension).await {
                     Ok(url_result) => {
                         tokio::spawn(async move {
-                            connections::connections::send_url_to_client(mutex_sender, &url_result).await;
+                            send_url_to_client(mutex_sender, &url_result).await;
                         });
                     },
                     Err(e) => println!("Error when uploading to minio {}", e)
