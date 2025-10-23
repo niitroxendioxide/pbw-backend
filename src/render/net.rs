@@ -9,7 +9,10 @@ use dotenvy::dotenv;
 use std::env;
 use std::path::Path;
 
-static MINIO_ENDPOINT: &str = "http://localhost:9000";
+fn get_minio_endpoint() -> String {
+    dotenv().ok();
+    std::env::var("MINIO_ENDPOINT").unwrap_or_else(|_| "http://localhost:9000".to_string())
+}
 static REGION: &str = "sa-east-1";
 
 
@@ -21,19 +24,20 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
     let bucket_name: &str = "images"; // env::var("MINIO_NAME").expect("MINIO_NAME Required in .env");
     let minio_region = Region::new(REGION);
 
-    let minio_config = aws_sdk_s3::config::Builder::new()
-        .region(minio_region)
-        .credentials_provider(Credentials::new(
-            access_key,
-            secret_access_key,
-            None,
-            None,
-            "minio",
-        ))
-        .endpoint_url(MINIO_ENDPOINT) // Now uses the correct URL
-        .behavior_version(BehaviorVersion::v2025_08_07())
-        .force_path_style(true)
-        .build();
+        let minio_endpoint = get_minio_endpoint();
+        let minio_config = aws_sdk_s3::config::Builder::new()
+            .region(minio_region)
+            .credentials_provider(Credentials::new(
+                access_key,
+                secret_access_key,
+                None,
+                None,
+                "minio",
+            ))
+            .endpoint_url(&minio_endpoint)
+            .behavior_version(BehaviorVersion::v2025_08_07())
+            .force_path_style(true)
+            .build();
 
     let minio_client = Client::from_conf(minio_config);
     match ByteStream::from_path(Path::new(file_path)).await {
@@ -50,7 +54,7 @@ pub async fn upload_to_minio(file_path: &str, image_uuid: &str, file_extension: 
         
             match send_result {
                 Ok(_) => {
-                    let public_url = format!("{}/{}/{}", MINIO_ENDPOINT, bucket_name, image_out);
+                        let public_url = format!("{}/{}/{}", minio_endpoint, bucket_name, image_out);
                     Ok(public_url)
                 },
                 Err(e) => {
