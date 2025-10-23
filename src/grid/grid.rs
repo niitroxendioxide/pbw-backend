@@ -73,7 +73,9 @@ impl UserData for Grid {
         methods.add_method_mut("switch_frame", |_, this, frame_to_switch: usize | {
             if frame_to_switch > (this.frames.len()-1) {
                 return Ok(());
-            }    
+            }   else {
+                return Err(mlua::Error::RuntimeError("Frame index out of bounds".to_string()));
+            }
 
             this.current_frame = frame_to_switch;
 
