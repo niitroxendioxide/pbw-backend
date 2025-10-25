@@ -11,7 +11,7 @@ use std::path::Path;
 
 fn get_minio_endpoint() -> String {
     dotenv().ok();
-    std::env::var("MINIO_ENDPOINT").unwrap_or_else(|_| "http://localhost:9000".to_string())
+    std::env::var("MINIO_ENDPOINT").unwrap_or_else(|_| "/minio/".to_string())
 }
 static REGION: &str = "sa-east-1";
 
