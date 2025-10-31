@@ -1,32 +1,33 @@
 # Stage 1: Builder
-FROM rust:latest AS builder
+FROM rust:bookworm AS builder
 
 WORKDIR /app
 
-# Copy Cargo.toml and Cargo.lock first to leverage Docker's layer caching
 COPY Cargo.toml Cargo.lock ./
 
-# Attempt to build dependencies to cache them
-# This step will only rebuild if Cargo.toml or Cargo.lock changes
-RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
 
-# Copy the rest of the application source code
 COPY . .
 
-# Build the application in release mode
 RUN cargo build --release
 
-# Stage 2: Runner
-FROM debian:bookworm-slim AS runner 
+# Stage 2: Runner (misma base que builder)
+FROM debian:bookworm-slim AS runner
 
-# Install any necessary runtime dependencies if required by your application
-# For a basic Rust binary, this might not be needed.
-# RUN apt-get update && apt-get install -y <package_name> && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y ca-certificates libssl3 && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy the compiled binary from the builder stage
 COPY --from=builder /app/target/release/backendcompiler ./
 
-# Set the entrypoint to run your application
+EXPOSE 60016
+
+ENV RUST_LOG=info
+ENV PORT=60016
+
 CMD ["./backendcompiler"]
