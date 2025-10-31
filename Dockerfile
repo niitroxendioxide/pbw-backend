@@ -1,43 +1,44 @@
 # Stage 1: Build
-FROM rust:1.75-alpine as builder
+FROM rust:1.75-slim as builder
 
-# Instalar dependencias de compilación
-RUN apk add --no-cache \
-    musl-dev \
-    pkgconfig \
-    openssl-dev \
-    openssl-libs-static
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copiar manifiestos
 COPY Cargo.toml Cargo.lock ./
 
-# Dummy build para cachear dependencias
+# Crear dummy para cachear dependencias
 RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \
     cargo build --release && \
     rm -rf src
 
-# Copiar código real
+# Copiar código fuente
 COPY . .
 
-# Build final
+# Build real
 RUN touch src/main.rs && \
     cargo build --release
 
 # Stage 2: Runtime
-FROM alpine:latest
+FROM debian:bookworm-slim
 
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     ca-certificates \
-    libgcc
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN adduser -D -u 1000 appuser
+RUN useradd -m -u 1000 appuser
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/paintbloatware-rust-backend /app/server
+# Copiar el binario (ajusta el nombre según tu Cargo.toml)
+COPY --from=builder /app/target/release/* /app/
 
 RUN chown -R appuser:appuser /app
 
@@ -48,4 +49,5 @@ EXPOSE 60016
 ENV RUST_LOG=info
 ENV PORT=60016
 
-CMD ["/app/server"]
+# Ejecuta el único binario que exista
+CMD ["/bin/sh", "-c", "exec /app/*"]
