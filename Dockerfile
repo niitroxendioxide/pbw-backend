@@ -26,7 +26,7 @@ FROM debian:bookworm-slim AS runner
 WORKDIR /app
 
 # Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/release/<your_app_name> ./
+COPY --from=builder /app/target/release/backendcompiler ./
 
 # Set the entrypoint to run your application
 CMD ["./backendcompiler"]
